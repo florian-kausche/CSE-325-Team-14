@@ -30,7 +30,7 @@
 - ✅ DataAnnotations - Form validation
 - ✅ Logging Framework - Application logging
 
-**Zero External Dependencies** - All functionality uses only Microsoft modules!
+**Zero Third-Party Dependencies** - All functionality uses only Microsoft modules, with optional Google OAuth via a Microsoft package.
 
 ### 3. ✅ Complete Feature Implementation
 

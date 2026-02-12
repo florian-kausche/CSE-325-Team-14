@@ -94,6 +94,7 @@ The Student Project Planner is now fully operational with all components properl
 ```
 ✅ Microsoft.AspNetCore.Authentication      - Auth framework
 ✅ Microsoft.AspNetCore.Authentication.Cookies
+✅ Microsoft.AspNetCore.Authentication.Google - Google OAuth (optional)
 ✅ Microsoft.AspNetCore.Authorization       - Access control
 ✅ Microsoft.AspNetCore.Identity            - User management
 ✅ Microsoft.AspNetCore.Identity.EntityFrameworkCore
@@ -431,14 +432,14 @@ dotnet run
 
 ### 2. Access the Application
 
-- Open browser: `http://localhost:5000`
+- Open browser: `http://localhost:5001`
 - Redirect to login page (not authenticated)
 
 ### 3. Register New Account
 
 - Click "Register" link
 - Enter: First Name, Last Name, Email, Password
-- Password must contain: uppercase, lowercase, digit, 6+ chars
+- Password must contain: uppercase, lowercase, digit, 8+ chars
 - Click "Create Account"
 - Auto-signed in and redirected to Dashboard
 
@@ -461,6 +462,7 @@ The Student Project Planner demonstrates a complete, production-ready .NET web a
 ✅ **Clean architecture with services & repositories**  
 ✅ **Comprehensive validation & error handling**  
 ✅ **Professional UI with Blazor components**  
+✅ **Optional Google OAuth via a Microsoft package**
 ✅ **Zero external dependencies for core functionality**
 
 All features leverage built-in .NET capabilities without any third-party frameworks.

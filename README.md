@@ -1,7 +1,7 @@
 # Student Project Planner
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
-[![Blazor](https://img.shields.io/badge/Blazor-WebAssembly-512BD4)](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
+[![Blazor](https://img.shields.io/badge/Blazor-Server-512BD4)](https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 A web-based application built using .NET Blazor that helps college and university students manage assignments, deadlines, and group projects in one centralized location.
@@ -80,7 +80,7 @@ Users will be able to:
 
 ### Frontend
 
-- **.NET Blazor** - Interactive web UI framework
+- **.NET Blazor Server** - Interactive web UI framework
 - **HTML/CSS** - Responsive design
 - **Bootstrap** - UI component library
 

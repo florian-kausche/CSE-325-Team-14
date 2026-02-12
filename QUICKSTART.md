@@ -2,7 +2,7 @@
 
 ## ✅ Status: COMPLETE & RUNNING
 
-**Application URL**: http://localhost:5000  
+**Application URL**: http://localhost:5001  
 **Database**: SQLite (StudentProjectPlanner.db)  
 **Framework**: ASP.NET Core 8.0 + Blazor Server
 
@@ -20,7 +20,7 @@ dotnet run
 
 ### Access Application
 
-Open browser: **http://localhost:5000**
+Open browser: **http://localhost:5001**
 
 ### Create Account
 
@@ -108,6 +108,9 @@ If you see an error about port 5001 being in use:
 ```powershell
 # Stop all dotnet processes
 Get-Process dotnet | Stop-Process -Force
+
+# Or run on a different port
+dotnet run --urls "http://localhost:5010"
 ```
 
 ### Build Errors
