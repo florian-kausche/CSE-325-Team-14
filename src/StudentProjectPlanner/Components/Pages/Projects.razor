@@ -1,0 +1,731 @@
+@page "/projects"
+@rendermode @(new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false))
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using StudentProjectPlanner.Models
+@using StudentProjectPlanner.Services.Interfaces
+@inject IGroupProjectService GroupProjectService
+@inject UserManager<ApplicationUser> UserManager
+@inject IJSRuntime JS
+@attribute [Authorize]
+
+<PageTitle>Group Projects - Student Project Planner</PageTitle>
+
+<div class="container-fluid content">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6">Group Projects</h1>
+            <p class="lead text-muted">Collaborate on group projects and track tasks together.</p>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            @if (selectedProject == null)
+            {
+                <button class="btn btn-primary" @onclick="ShowCreateForm">
+                    <i class="bi bi-plus-circle"></i> Create New Project
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-secondary" @onclick="BackToList">
+                    <i class="bi bi-arrow-left"></i> Back to Projects
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (errorMessage != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (successMessage != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @* ===== CREATE / EDIT FORM ===== *@
+    @if (showCreateForm && selectedProject == null)
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>@(editingProject != null ? "Edit Project" : "Create New Project")</h5>
+            </div>
+            <div class="card-body">
+                <EditForm Model="projectModel" OnValidSubmit="SaveProject">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Project Name</label>
+                        <InputText class="form-control" @bind-Value="projectModel.Name"
+                            placeholder="e.g., Team Research Paper" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Due Date (Optional)</label>
+                        <InputDate class="form-control" @bind-Value="projectModel.DueDate" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Description (Optional)</label>
+                        <InputTextArea class="form-control" @bind-Value="projectModel.Description" rows="3"
+                            placeholder="Describe the project goals and scope..." />
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span>@(editingProject != null ? "Update" : "Create") Project</span>
+                            }
+                        </button>
+                        <button type="button" class="btn btn-secondary" @onclick="CancelForm">Cancel</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @* ===== PROJECT LIST VIEW ===== *@
+    @if (selectedProject == null)
+    {
+        @if (isLoading)
+        {
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading projects...</span>
+                </div>
+            </div>
+        }
+        else if (projects.Count == 0)
+        {
+            <div class="empty-state">
+                <div class="empty-state-icon"><i class="bi bi-people"></i></div>
+                <h5>No group projects yet</h5>
+                <p>Start collaborating by creating your first group project.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row">
+                @foreach (var project in projects)
+                {
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">@project.Name</h5>
+                                @if (project.DueDate.HasValue)
+                                {
+                                    <small class="text-muted">Due: @project.DueDate.Value.ToShortDateString()</small>
+                                }
+                            </div>
+                            <div class="card-body">
+                                @if (!string.IsNullOrEmpty(project.Description))
+                                {
+                                    <p class="card-text">@project.Description</p>
+                                }
+                                <div class="mb-3">
+                                    <small class="text-muted">
+                                        <strong>@project.Members.Count</strong> member@(project.Members.Count != 1 ? "s" : "")
+                                        · <strong>@project.Tasks.Count</strong> task@(project.Tasks.Count != 1 ? "s" : "")
+                                    </small>
+                                </div>
+                                @if (project.TotalTasks > 0)
+                                {
+                                    <div class="progress progress-lg">
+                                        <div class="progress-bar bg-success" role="progressbar"
+                                            style="width: @project.CompletionPercentage%;"
+                                            aria-valuenow="@project.CompletionPercentage" aria-valuemin="0" aria-valuemax="100">
+                                            @project.CompletionPercentage.ToString("F0")%
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <small class="text-muted">No tasks added yet</small>
+                                }
+                            </div>
+                            <div class="card-footer d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => ViewProject(project.Id)">
+                                    View Details
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditProject(project)">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteProject(project.Id)">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    @* ===== PROJECT DETAIL VIEW ===== *@
+    @if (selectedProject != null)
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>@selectedProject.Name</h4>
+                @if (!string.IsNullOrEmpty(selectedProject.Description))
+                {
+                    <p class="text-muted mb-0">@selectedProject.Description</p>
+                }
+                @if (selectedProject.DueDate.HasValue)
+                {
+                    <small class="text-muted">Due: @selectedProject.DueDate.Value.ToShortDateString()</small>
+                }
+            </div>
+        </div>
+
+        @* --- Members Section --- *@
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Members (@selectedProject.Members.Count)</h5>
+                <button class="btn btn-sm btn-primary" @onclick="() => showAddMember = !showAddMember">
+                    <i class="bi bi-person-plus"></i> Add Member
+                </button>
+            </div>
+            @if (showAddMember)
+            {
+                <div class="card-body border-bottom">
+                    <div class="input-group">
+                        <input type="email" class="form-control" placeholder="Enter member's email address"
+                            @bind="newMemberEmail" @bind:event="oninput" />
+                        <button class="btn btn-primary" @onclick="AddMember" disabled="@isSaving">Add</button>
+                        <button class="btn btn-secondary" @onclick="() => { showAddMember = false; newMemberEmail = string.Empty; }">Cancel</button>
+                    </div>
+                </div>
+            }
+            <ul class="list-group list-group-flush">
+                @foreach (var member in selectedProject.Members)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>@(member.User?.FirstName) @(member.User?.LastName)</strong>
+                            <small class="text-muted ms-2">@(member.User?.Email)</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-@(member.Role == "Owner" ? "warning" : "secondary")">@member.Role</span>
+                            @if (member.UserId != currentUserId)
+                            {
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveMember(member.UserId)">
+                                    Remove
+                                </button>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        @* --- Tasks Section --- *@
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Tasks (@selectedProject.Tasks.Count)</h5>
+                <button class="btn btn-sm btn-primary" @onclick="ShowCreateTaskForm">
+                    <i class="bi bi-plus-circle"></i> Add Task
+                </button>
+            </div>
+
+            @if (showTaskForm)
+            {
+                <div class="card-body border-bottom">
+                    <EditForm Model="taskModel" OnValidSubmit="SaveTask">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <InputText class="form-control" @bind-Value="taskModel.Name" placeholder="Task name" />
+                            </div>
+                            <div class="col-md-3">
+                                <InputDate class="form-control" @bind-Value="taskModel.DueDate" />
+                            </div>
+                            <div class="col-md-3">
+                                <InputSelect class="form-select" @bind-Value="taskModel.AssignedUserId">
+                                    <option value="">Unassigned</option>
+                                    @foreach (var member in selectedProject.Members)
+                                    {
+                                        <option value="@member.UserId">@(member.User?.FirstName) @(member.User?.LastName)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-2 d-flex gap-1">
+                                <button type="submit" class="btn btn-primary btn-sm" disabled="@isSaving">Save</button>
+                                <button type="button" class="btn btn-secondary btn-sm" @onclick="CancelTaskForm">Cancel</button>
+                            </div>
+                        </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-12">
+                                <InputTextArea class="form-control" @bind-Value="taskModel.Description"
+                                    placeholder="Task description (optional)" rows="2" />
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+            }
+
+            @if (selectedProject.Tasks.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Task</th>
+                                <th>Assigned To</th>
+                                <th>Due Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var task in selectedProject.Tasks.OrderBy(t => t.Status).ThenBy(t => t.DueDate))
+                            {
+                                <tr class="@(task.IsOverdue ? "table-danger" : "")">
+                                    <td>
+                                        <strong>@task.Name</strong>
+                                        @if (!string.IsNullOrEmpty(task.Description))
+                                        {
+                                            <br /><small class="text-muted">@task.Description</small>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (task.AssignedUser != null)
+                                        {
+                                            <span>@task.AssignedUser.FirstName @task.AssignedUser.LastName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Unassigned</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (task.DueDate.HasValue)
+                                        {
+                                            @task.DueDate.Value.ToShortDateString()
+                                            @if (task.IsOverdue)
+                                            {
+                                                <br /><small class="text-danger">Overdue</small>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">No due date</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-@GetTaskStatusClass(task.Status)">
+                                            @GetTaskStatusLabel(task.Status)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            @if (task.Status != Models.TaskStatus.Completed)
+                                            {
+                                                @if (task.Status == Models.TaskStatus.NotStarted)
+                                                {
+                                                    <button class="btn btn-outline-primary"
+                                                        @onclick="() => UpdateTaskStatus(task, Models.TaskStatus.InProgress)"
+                                                        title="Start Task">
+                                                        Start
+                                                    </button>
+                                                }
+                                                <button class="btn btn-outline-success"
+                                                    @onclick="() => UpdateTaskStatus(task, Models.TaskStatus.Completed)"
+                                                    title="Mark Complete">
+                                                    Done
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-outline-warning"
+                                                    @onclick="() => UpdateTaskStatus(task, Models.TaskStatus.InProgress)"
+                                                    title="Reopen">
+                                                    Reopen
+                                                </button>
+                                            }
+                                            <button class="btn btn-outline-danger" @onclick="() => DeleteTask(task)">
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="card-body">
+                    <p class="text-muted mb-0">No tasks yet. Click "Add Task" to create one.</p>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<GroupProject> projects = new();
+    private GroupProject? selectedProject;
+    private GroupProject? editingProject;
+    private ProjectModel projectModel = new();
+    private TaskModel taskModel = new();
+    private bool showCreateForm = false;
+    private bool showTaskForm = false;
+    private bool showAddMember = false;
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? errorMessage;
+    private string? successMessage;
+    private string currentUserId = string.Empty;
+    private string newMemberEmail = string.Empty;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationState != null)
+        {
+            var authState = await AuthenticationState;
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var appUser = await UserManager.GetUserAsync(user);
+                if (appUser != null)
+                {
+                    currentUserId = appUser.Id;
+                    await LoadProjects();
+                }
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadProjects()
+    {
+        try
+        {
+            projects = (await GroupProjectService.GetUserProjectsAsync(currentUserId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading projects: {ex.Message}";
+        }
+    }
+
+    // --- Project CRUD ---
+
+    private void ShowCreateForm()
+    {
+        projectModel = new ProjectModel { DueDate = DateTime.Now.AddDays(30) };
+        editingProject = null;
+        showCreateForm = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void EditProject(GroupProject project)
+    {
+        projectModel = new ProjectModel
+        {
+            Name = project.Name,
+            Description = project.Description,
+            DueDate = project.DueDate ?? DateTime.Now.AddDays(30)
+        };
+        editingProject = project;
+        showCreateForm = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private async Task SaveProject()
+    {
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            var project = new GroupProject
+            {
+                Name = projectModel.Name,
+                Description = projectModel.Description,
+                DueDate = projectModel.DueDate
+            };
+
+            if (editingProject != null)
+            {
+                await GroupProjectService.UpdateProjectAsync(editingProject.Id, project, currentUserId);
+                successMessage = "Project updated successfully.";
+            }
+            else
+            {
+                await GroupProjectService.CreateProjectAsync(project, currentUserId);
+                successMessage = "Project created successfully.";
+            }
+
+            await LoadProjects();
+            CancelForm();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteProject(int projectId)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", "Are you sure you want to delete this project? All tasks and member data will be removed."))
+        {
+            try
+            {
+                await GroupProjectService.DeleteProjectAsync(projectId, currentUserId);
+                successMessage = "Project deleted.";
+                await LoadProjects();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error deleting project: {ex.Message}";
+            }
+        }
+    }
+
+    private void CancelForm()
+    {
+        showCreateForm = false;
+        editingProject = null;
+        projectModel = new();
+    }
+
+    // --- Project Detail View ---
+
+    private async Task ViewProject(int projectId)
+    {
+        try
+        {
+            selectedProject = await GroupProjectService.GetProjectWithDetailsAsync(projectId, currentUserId);
+            if (selectedProject == null)
+            {
+                errorMessage = "Project not found or you do not have access.";
+            }
+            errorMessage = null;
+            successMessage = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading project details: {ex.Message}";
+        }
+    }
+
+    private void BackToList()
+    {
+        selectedProject = null;
+        showTaskForm = false;
+        showAddMember = false;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    // --- Member Management ---
+
+    private async Task AddMember()
+    {
+        if (string.IsNullOrWhiteSpace(newMemberEmail))
+        {
+            errorMessage = "Please enter an email address.";
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            await GroupProjectService.AddMemberAsync(selectedProject!.Id, currentUserId, newMemberEmail);
+            successMessage = "Member added successfully.";
+            newMemberEmail = string.Empty;
+            showAddMember = false;
+            selectedProject = await GroupProjectService.GetProjectWithDetailsAsync(selectedProject.Id, currentUserId);
+            await LoadProjects();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task RemoveMember(string memberUserId)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", "Are you sure you want to remove this member?"))
+        {
+            try
+            {
+                await GroupProjectService.RemoveMemberAsync(selectedProject!.Id, currentUserId, memberUserId);
+                successMessage = "Member removed.";
+                selectedProject = await GroupProjectService.GetProjectWithDetailsAsync(selectedProject.Id, currentUserId);
+                await LoadProjects();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+            }
+        }
+    }
+
+    // --- Task Management ---
+
+    private void ShowCreateTaskForm()
+    {
+        taskModel = new TaskModel { DueDate = selectedProject?.DueDate };
+        showTaskForm = true;
+        errorMessage = null;
+    }
+
+    private void CancelTaskForm()
+    {
+        showTaskForm = false;
+        taskModel = new();
+    }
+
+    private async Task SaveTask()
+    {
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            var task = new ProjectTask
+            {
+                Name = taskModel.Name,
+                Description = taskModel.Description,
+                DueDate = taskModel.DueDate,
+                AssignedUserId = string.IsNullOrEmpty(taskModel.AssignedUserId) ? null : taskModel.AssignedUserId
+            };
+
+            await GroupProjectService.AddTaskAsync(selectedProject!.Id, task, currentUserId);
+
+            successMessage = "Task added.";
+            showTaskForm = false;
+            taskModel = new();
+
+            selectedProject = await GroupProjectService.GetProjectWithDetailsAsync(selectedProject.Id, currentUserId);
+            await LoadProjects();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error adding task: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task UpdateTaskStatus(ProjectTask task, Models.TaskStatus newStatus)
+    {
+        try
+        {
+            await GroupProjectService.UpdateTaskStatusAsync(selectedProject!.Id, task.Id, newStatus, currentUserId);
+
+            selectedProject = await GroupProjectService.GetProjectWithDetailsAsync(selectedProject.Id, currentUserId);
+            await LoadProjects();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating task: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteTask(ProjectTask task)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to delete task '{task.Name}'?"))
+        {
+            try
+            {
+                await GroupProjectService.DeleteTaskAsync(selectedProject!.Id, task.Id, currentUserId);
+
+                selectedProject = await GroupProjectService.GetProjectWithDetailsAsync(selectedProject.Id, currentUserId);
+                await LoadProjects();
+                successMessage = "Task deleted.";
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error deleting task: {ex.Message}";
+            }
+        }
+    }
+
+    // --- Helpers ---
+
+    private string GetTaskStatusClass(Models.TaskStatus status) => status switch
+    {
+        Models.TaskStatus.Completed => "success",
+        Models.TaskStatus.InProgress => "primary",
+        Models.TaskStatus.NotStarted => "secondary",
+        _ => "secondary"
+    };
+
+    private string GetTaskStatusLabel(Models.TaskStatus status) => status switch
+    {
+        Models.TaskStatus.Completed => "Completed",
+        Models.TaskStatus.InProgress => "In Progress",
+        Models.TaskStatus.NotStarted => "Not Started",
+        _ => "Unknown"
+    };
+
+    // --- Form Models ---
+
+    private class ProjectModel
+    {
+        [Required]
+        [MaxLength(200)]
+        public string Name { get; set; } = string.Empty;
+
+        [MaxLength(2000)]
+        public string? Description { get; set; }
+
+        public DateTime? DueDate { get; set; }
+    }
+
+    private class TaskModel
+    {
+        [Required]
+        [MaxLength(200)]
+        public string Name { get; set; } = string.Empty;
+
+        [MaxLength(2000)]
+        public string? Description { get; set; }
+
+        public DateTime? DueDate { get; set; }
+
+        public string? AssignedUserId { get; set; }
+    }
+}

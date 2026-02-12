@@ -1,0 +1,242 @@
+@page "/register"
+@layout Layout.AuthLayout
+@using Microsoft.AspNetCore.Identity
+@using StudentProjectPlanner.Models
+@using System.ComponentModel.DataAnnotations
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Register - Student Project Planner</PageTitle>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-card-header auth-header-success">
+            <div class="auth-logo">
+                <i class="bi bi-person-plus-fill"></i>
+            </div>
+            <h2>Create Account</h2>
+            <p>Get started with Student Project Planner</p>
+        </div>
+        <div class="auth-card-body">
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    <ul class="mb-0 mt-1 ps-3">
+                        @foreach (var error in ErrorMessage.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            <li>@error</li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <EditForm Model="RegisterInput" OnValidSubmit="HandleRegister" FormName="RegisterForm">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <label class="form-label">First Name</label>
+                        <InputText class="form-control" @bind-Value="RegisterInput.FirstName" placeholder="John" />
+                        <ValidationMessage For="@(() => RegisterInput.FirstName)" class="text-danger" />
+                    </div>
+                    <div class="col-6 mb-3">
+                        <label class="form-label">Last Name</label>
+                        <InputText class="form-control" @bind-Value="RegisterInput.LastName" placeholder="Doe" />
+                        <ValidationMessage For="@(() => RegisterInput.LastName)" class="text-danger" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Email Address</label>
+                    <div class="input-icon-wrapper">
+                        <i class="bi bi-envelope input-icon"></i>
+                        <InputText class="form-control form-control-icon" @bind-Value="RegisterInput.Email" type="email"
+                                   placeholder="name@example.com" />
+                    </div>
+                    <ValidationMessage For="@(() => RegisterInput.Email)" class="text-danger" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <div class="input-icon-wrapper">
+                        <i class="bi bi-lock input-icon"></i>
+                        <InputText type="password" class="form-control form-control-icon" @bind-Value="RegisterInput.Password"
+                                   id="registerPassword" placeholder="Create a password" />
+                    </div>
+                    <ValidationMessage For="@(() => RegisterInput.Password)" class="text-danger" />
+                    <div id="passwordStrengthContainer" class="mt-2 password-strength-container">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <small class="form-label mb-0">Strength:</small>
+                            <small id="strengthLabel" class="password-strength-label"></small>
+                        </div>
+                        <div class="progress progress-sm">
+                            <div id="strengthBar" class="progress-bar" style="width: 0%;"></div>
+                        </div>
+                        <div class="mt-2 password-requirements">
+                            <div id="req-length" class="text-muted"><i class="bi bi-circle"></i> At least 8 characters</div>
+                            <div id="req-upper" class="text-muted"><i class="bi bi-circle"></i> One uppercase letter</div>
+                            <div id="req-lower" class="text-muted"><i class="bi bi-circle"></i> One lowercase letter</div>
+                            <div id="req-number" class="text-muted"><i class="bi bi-circle"></i> One number</div>
+                            <div id="req-special" class="text-muted"><i class="bi bi-circle"></i> One special character</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Confirm Password</label>
+                    <div class="input-icon-wrapper">
+                        <i class="bi bi-lock-fill input-icon"></i>
+                        <InputText type="password" class="form-control form-control-icon" @bind-Value="RegisterInput.ConfirmPassword"
+                                   placeholder="Confirm your password" />
+                    </div>
+                    <ValidationMessage For="@(() => RegisterInput.ConfirmPassword)" class="text-danger" />
+                </div>
+
+                <div class="mb-4">
+                    <div class="form-check terms-check">
+                        <label class="form-check-label d-flex align-items-start gap-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="RegisterInput.AcceptTerms" />
+                            <span class="terms-check-text">
+                                I agree to the <a href="/terms" target="_blank" class="auth-link">Terms of Service</a>
+                                and <a href="/privacy" target="_blank" class="auth-link">Privacy Policy</a>
+                            </span>
+                        </label>
+                        <ValidationMessage For="@(() => RegisterInput.AcceptTerms)" class="text-danger" />
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success btn-lg w-100">
+                    <i class="bi bi-person-plus me-1"></i> Create Account
+                </button>
+            </EditForm>
+
+            <div class="auth-divider"></div>
+            <a class="btn btn-outline-secondary w-100 auth-oauth-btn" href="/account/external-login?provider=Google&returnUrl=/">
+                <i class="bi bi-google"></i>
+                Sign up with Google
+            </a>
+
+            <div class="auth-divider"></div>
+            <p class="text-center mb-0 auth-footer-text">
+                Already have an account? <a href="/login" class="auth-link">Sign in</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var pwInput = document.getElementById('registerPassword');
+        if (!pwInput) return;
+        var container = document.getElementById('passwordStrengthContainer');
+        pwInput.addEventListener('input', function () {
+            var pw = pwInput.value;
+            if (!pw) { container.style.display = 'none'; return; }
+            container.style.display = 'block';
+            var hasLen = pw.length >= 8, hasUp = /[A-Z]/.test(pw), hasLo = /[a-z]/.test(pw),
+                hasNum = /\d/.test(pw), hasSp = /[!@@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw);
+            var score = (hasLen ? 1 : 0) + (hasUp ? 1 : 0) + (hasLo ? 1 : 0) + (hasNum ? 1 : 0) + (hasSp ? 1 : 0);
+            var labels = ['', '', 'Weak', 'Fair', 'Good', 'Strong'],
+                colors = ['', '', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e'],
+                widths = ['0', '0', '25', '50', '75', '100'];
+            document.getElementById('strengthLabel').textContent = labels[score] || 'Weak';
+            document.getElementById('strengthLabel').style.color = colors[score] || '#ef4444';
+            document.getElementById('strengthBar').style.width = (widths[score] || '25') + '%';
+            document.getElementById('strengthBar').style.background = colors[score] || '#ef4444';
+            function setReq(id, met) {
+                var el = document.getElementById(id);
+                el.style.color = met ? '#22c55e' : '#64748b';
+                el.innerHTML = (met ? '<i class="bi bi-check-circle-fill"></i> ' : '<i class="bi bi-circle"></i> ') + el.textContent.trim();
+            }
+            setReq('req-length', hasLen); setReq('req-upper', hasUp); setReq('req-lower', hasLo);
+            setReq('req-number', hasNum); setReq('req-special', hasSp);
+        });
+    });
+</script>
+
+@code {
+    [SupplyParameterFromForm]
+    private RegisterModel RegisterInput { get; set; } = new();
+
+    private string? ErrorMessage { get; set; }
+
+    private async Task HandleRegister()
+    {
+        try
+        {
+            if (RegisterInput.Password != RegisterInput.ConfirmPassword)
+            {
+                ErrorMessage = "Passwords do not match.";
+                return;
+            }
+
+            var existingUser = await UserManager.FindByEmailAsync(RegisterInput.Email);
+            if (existingUser != null)
+            {
+                ErrorMessage = "An account with this email address already exists.";
+                return;
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = RegisterInput.Email,
+                Email = RegisterInput.Email,
+                FirstName = RegisterInput.FirstName,
+                LastName = RegisterInput.LastName,
+                EmailConfirmed = true
+            };
+
+            var result = await UserManager.CreateAsync(user, RegisterInput.Password);
+
+            if (result.Succeeded)
+            {
+                await SignInManager.SignInAsync(user, isPersistent: false);
+                Navigation.NavigateTo("/", true);
+            }
+            else
+            {
+                var errors = result.Errors.Select(e => e.Description).ToList();
+                ErrorMessage = string.Join(", ", errors);
+            }
+        }
+        catch (Microsoft.AspNetCore.Components.NavigationException)
+        {
+            throw; // Let Blazor handle the redirect
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "An unexpected error occurred during registration. Please try again.";
+        }
+    }
+
+    private class RegisterModel
+    {
+        [Required(ErrorMessage = "First name is required")]
+        [StringLength(100, MinimumLength = 2, ErrorMessage = "First name must be between 2 and 100 characters")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Last name is required")]
+        [StringLength(100, MinimumLength = 2, ErrorMessage = "Last name must be between 2 and 100 characters")]
+        public string LastName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email address is required")]
+        [EmailAddress(ErrorMessage = "Please enter a valid email address")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Password is required")]
+        [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters long")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please confirm your password")]
+        [DataType(DataType.Password)]
+        [Compare(nameof(Password), ErrorMessage = "Passwords do not match")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "You must accept the terms and conditions")]
+        [Range(typeof(bool), "true", "true", ErrorMessage = "You must accept the terms and conditions")]
+        public bool AcceptTerms { get; set; } = false;
+    }
+}

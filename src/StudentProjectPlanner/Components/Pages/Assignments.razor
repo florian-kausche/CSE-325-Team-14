@@ -1,0 +1,476 @@
+@page "/assignments"
+@rendermode @(new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false))
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using StudentProjectPlanner.Models
+@using StudentProjectPlanner.Services.Interfaces
+@inject IAssignmentService AssignmentService
+@inject ICourseService CourseService
+@inject UserManager<ApplicationUser> UserManager
+@inject IJSRuntime JS
+@attribute [Authorize]
+
+<PageTitle>Assignments - Student Project Planner</PageTitle>
+
+<div class="container-fluid content">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6">My Assignments</h1>
+            <p class="lead text-muted">Track your assignments and deadlines.</p>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <button class="btn btn-primary" @onclick="ShowCreateForm">
+                <i class="bi bi-plus-circle"></i> Add New Assignment
+            </button>
+            <div class="btn-group ms-2" role="group">
+                <button type="button" class="btn btn-outline-secondary @(filter == "all" ? "active" : "")"
+                    @onclick="@((e) => SetFilter("all"))">All</button>
+                <button type="button" class="btn btn-outline-warning @(filter == "upcoming" ? "active" : "")"
+                    @onclick="@((e) => SetFilter("upcoming"))">Upcoming</button>
+                <button type="button" class="btn btn-outline-danger @(filter == "overdue" ? "active" : "")"
+                    @onclick="@((e) => SetFilter("overdue"))">Overdue</button>
+            </div>
+        </div>
+    </div>
+
+    @if (errorMessage != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (showCreateForm)
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>@(editingAssignment != null ? "Edit Assignment" : "Create New Assignment")</h5>
+            </div>
+            <div class="card-body">
+                <EditForm Model="assignmentModel" OnValidSubmit="SaveAssignment">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Assignment Name</label>
+                        <InputText class="form-control" @bind-Value="assignmentModel.Name" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Course</label>
+                        <InputSelect class="form-select" @bind-Value="assignmentModel.CourseId">
+                            <option value="0">Select a course...</option>
+                            @foreach (var course in courses)
+                            {
+                                <option value="@course.Id">@course.Name (@course.CourseCode)</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Due Date</label>
+                        <InputDate class="form-control" @bind-Value="assignmentModel.DueDate" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Priority</label>
+                        <InputSelect class="form-select" @bind-Value="assignmentModel.Priority">
+                            <option value="@Priority.Low">Low</option>
+                            <option value="@Priority.Medium">Medium</option>
+                            <option value="@Priority.High">High</option>
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <InputSelect class="form-select" @bind-Value="assignmentModel.Status">
+                            <option value="@AssignmentStatus.NotStarted">Not Started</option>
+                            <option value="@AssignmentStatus.InProgress">In Progress</option>
+                            <option value="@AssignmentStatus.Completed">Completed</option>
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Description (Optional)</label>
+                        <InputTextArea class="form-control" @bind-Value="assignmentModel.Description" rows="3" />
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span>@(editingAssignment != null ? "Update" : "Create") Assignment</span>
+                            }
+                        </button>
+                        <button type="button" class="btn btn-secondary" @onclick="CancelForm">Cancel</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading assignments...</span>
+            </div>
+        </div>
+    }
+    else if (!filteredAssignments.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="bi bi-check2-square"></i></div>
+            @if (filter == "all")
+            {
+                <h5>No assignments yet</h5>
+                <p>Add your first assignment to start tracking your deadlines.</p>
+            }
+            else if (filter == "upcoming")
+            {
+                <h5>No upcoming assignments</h5>
+                <p>No assignments due in the next 7 days.</p>
+            }
+            else
+            {
+                <h5>No overdue assignments</h5>
+                <p>You're all caught up. Great work!</p>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Assignment</th>
+                        <th>Course</th>
+                        <th>Due Date</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var assignment in filteredAssignments)
+                    {
+                        <tr class="@(assignment.IsOverdue ? "table-danger" : "")">
+                            <td>
+                                <strong>@assignment.Name</strong>
+                                @if (!string.IsNullOrEmpty(assignment.Description))
+                                {
+                                    <br />
+
+                                    <small class="text-muted">@assignment.Description</small>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge course-badge" style="background-color: @assignment.Course.Color;">
+                                    @assignment.Course.CourseCode
+                                </span>
+                            </td>
+                            <td>
+                                @assignment.DueDate.ToShortDateString()
+                                <br />
+                                <small class="text-muted">
+                                    @if (assignment.IsOverdue)
+                                    {
+                                        <text>Overdue</text>
+                                    }
+                                    else if (assignment.DaysUntilDue == 0)
+                                    {
+                                        <text>Due today</text>
+                                    }
+                                    else if (assignment.DaysUntilDue == 1)
+                                    {
+                                        <text>Due tomorrow</text>
+                                    }
+                                    else
+                                    {
+                                        <text>@assignment.DaysUntilDue days left</text>
+                                    }
+                                </small>
+                            </td>
+                            <td>
+                                <span class="badge bg-@GetPriorityClass(assignment.Priority)">
+                                    @assignment.Priority
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-@GetStatusClass(assignment.Status)">
+                                    @assignment.Status.ToString().Replace("NotStarted", "Not Started").Replace("InProgress", "In                            Progress")
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    @if (assignment.Status != AssignmentStatus.Completed)
+                                    {
+                                        <button class="btn btn-outline-success" @onclick="() => MarkComplete(assignment.Id)"
+                                            title="Mark as Complete">
+                                            ✓
+                                        </button>
+                                    }
+                                    <button class="btn btn-outline-primary" @onclick="() => EditAssignment(assignment)">
+                                        Edit
+                                    </button>
+                                    <button class="btn btn-outline-danger" @onclick="() => DeleteAssignment(assignment.Id)">
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Assignment> assignments = new();
+    private List<Assignment> filteredAssignments = new();
+    private List<Course> courses = new();
+    private AssignmentModel assignmentModel = new();
+    private Assignment? editingAssignment;
+    private bool showCreateForm = false;
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? errorMessage;
+    private string currentUserId = string.Empty;
+    private string filter = "all";
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationState != null)
+        {
+            var authState = await AuthenticationState;
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var appUser = await UserManager.GetUserAsync(user);
+                if (appUser != null)
+                {
+                    currentUserId = appUser.Id;
+                    await LoadData();
+                }
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            courses = (await CourseService.GetUserCoursesAsync(currentUserId)).ToList();
+            await LoadAssignments();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading data: {ex.Message}";
+        }
+    }
+
+    private async Task LoadAssignments()
+    {
+        try
+        {
+            if (filter == "upcoming")
+            {
+                assignments = (await AssignmentService.GetUpcomingAssignmentsAsync(currentUserId)).ToList();
+            }
+            else if (filter == "overdue")
+            {
+                assignments = (await AssignmentService.GetOverdueAssignmentsAsync(currentUserId)).ToList();
+            }
+            else
+            {
+                assignments = (await AssignmentService.GetUserAssignmentsAsync(currentUserId)).ToList();
+            }
+
+            filteredAssignments = assignments;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading assignments: {ex.Message}";
+        }
+    }
+
+    private async Task SetFilter(string newFilter)
+    {
+        filter = newFilter;
+        await LoadAssignments();
+    }
+
+    private void ShowCreateForm()
+    {
+        if (!courses.Any())
+        {
+            errorMessage = "Please create a course first before adding assignments.";
+            return;
+        }
+
+        assignmentModel = new AssignmentModel
+        {
+            DueDate = DateTime.Now.AddDays(7),
+            Priority = Priority.Medium,
+            Status = AssignmentStatus.NotStarted
+        };
+        editingAssignment = null;
+        showCreateForm = true;
+        errorMessage = null;
+    }
+
+    private void EditAssignment(Assignment assignment)
+    {
+        assignmentModel = new AssignmentModel
+        {
+            Name = assignment.Name,
+            Description = assignment.Description,
+            DueDate = assignment.DueDate,
+            Priority = assignment.Priority,
+            Status = assignment.Status,
+            CourseId = assignment.CourseId
+        };
+        editingAssignment = assignment;
+        showCreateForm = true;
+        errorMessage = null;
+    }
+
+    private async Task SaveAssignment()
+    {
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            if (assignmentModel.CourseId == 0)
+            {
+                errorMessage = "Please select a course.";
+                return;
+            }
+
+            var assignment = new Assignment
+            {
+                Name = assignmentModel.Name,
+                Description = assignmentModel.Description,
+                DueDate = assignmentModel.DueDate,
+                Priority = assignmentModel.Priority,
+                Status = assignmentModel.Status,
+                CourseId = assignmentModel.CourseId
+            };
+
+            if (editingAssignment != null)
+            {
+                await AssignmentService.UpdateAssignmentAsync(editingAssignment.Id, assignment, currentUserId);
+            }
+            else
+            {
+                await AssignmentService.CreateAssignmentAsync(assignment, currentUserId);
+            }
+
+            await LoadAssignments();
+            CancelForm();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task MarkComplete(int assignmentId)
+    {
+        try
+        {
+            await AssignmentService.UpdateAssignmentStatusAsync(assignmentId, AssignmentStatus.Completed, currentUserId);
+            await LoadAssignments();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating assignment: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteAssignment(int assignmentId)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", "Are you sure you want to delete this assignment?"))
+        {
+            try
+            {
+                await AssignmentService.DeleteAssignmentAsync(assignmentId, currentUserId);
+                await LoadAssignments();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error deleting assignment: {ex.Message}";
+            }
+        }
+    }
+
+    private void CancelForm()
+    {
+        showCreateForm = false;
+        editingAssignment = null;
+        assignmentModel = new();
+    }
+
+    private string GetPriorityClass(Priority priority) => priority switch
+    {
+        Priority.High => "danger",
+        Priority.Medium => "warning",
+        Priority.Low => "info",
+        _ => "secondary"
+    };
+
+    private string GetStatusClass(AssignmentStatus status) => status switch
+    {
+        AssignmentStatus.Completed => "success",
+        AssignmentStatus.InProgress => "primary",
+        AssignmentStatus.NotStarted => "secondary",
+        _ => "secondary"
+    };
+
+    private class AssignmentModel
+    {
+        [Required]
+        [MaxLength(200)]
+        public string Name { get; set; } = string.Empty;
+
+        [MaxLength(2000)]
+        public string? Description { get; set; }
+
+        [Required]
+        public DateTime DueDate { get; set; }
+
+        [Required]
+        public Priority Priority { get; set; }
+
+        [Required]
+        public AssignmentStatus Status { get; set; }
+
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "Please select a course")]
+        public int CourseId { get; set; }
+    }
+}

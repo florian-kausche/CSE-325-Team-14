@@ -1,0 +1,40 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+
+@inherits LayoutComponentBase
+
+<div class="page">
+    <aside class="page-sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <i class="bi bi-mortarboard-fill sidebar-logo"></i>
+            <span class="sidebar-brand">Student Planner</span>
+        </div>
+        <NavMenu />
+    </aside>
+
+    <div class="sidebar-overlay d-lg-none" onclick="document.getElementById('sidebar').classList.remove('show')"></div>
+
+    <div class="page-wrapper">
+        <header class="page-header">
+            <div class="header-inner">
+                <button class="sidebar-toggle d-lg-none"
+                        onclick="document.getElementById('sidebar').classList.toggle('show')">
+                    <i class="bi bi-list"></i>
+                </button>
+                <span class="header-greeting">Student Project Planner</span>
+            </div>
+        </header>
+
+        <main class="page-body">
+            <div class="page-content">
+                @Body
+            </div>
+        </main>
+    </div>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">X</a>
+</div>

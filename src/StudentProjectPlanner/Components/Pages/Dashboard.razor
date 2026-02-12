@@ -1,0 +1,266 @@
+@page "/"
+@rendermode @(new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false))
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using StudentProjectPlanner.Models
+@using StudentProjectPlanner.Services.Interfaces
+@inject IDashboardService DashboardService
+@inject IAssignmentService AssignmentService
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
+@attribute [Authorize]
+
+<PageTitle>Dashboard - Student Project Planner</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6">Welcome back, @userName!</h1>
+            <p class="lead">Here's an overview of your academic workload.</p>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading dashboard...</span>
+            </div>
+        </div>
+    }
+    else if (dashboardData != null)
+    {
+        <!-- Stat Cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-lg-3">
+                <div class="stat-card stat-card-primary">
+                    <div class="stat-icon"><i class="bi bi-journal-text"></i></div>
+                    <div class="stat-value">@dashboardData.TotalCourses</div>
+                    <div class="stat-label">Active Courses</div>
+                    <div class="stat-footer"><a href="/courses">Manage courses</a></div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="stat-card stat-card-info">
+                    <div class="stat-icon"><i class="bi bi-check2-square"></i></div>
+                    <div class="stat-value">@dashboardData.TotalAssignments</div>
+                    <div class="stat-label">Total Assignments</div>
+                    <div class="stat-footer">@dashboardData.CompletedAssignments completed</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="stat-card stat-card-warning">
+                    <div class="stat-icon"><i class="bi bi-clock"></i></div>
+                    <div class="stat-value">@dashboardData.UpcomingAssignments</div>
+                    <div class="stat-label">Upcoming</div>
+                    <div class="stat-footer">Due in next 7 days</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                @if (dashboardData.OverdueAssignments > 0)
+                {
+                    <div class="stat-card stat-card-danger">
+                        <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                        <div class="stat-value">@dashboardData.OverdueAssignments</div>
+                        <div class="stat-label">Overdue</div>
+                        <div class="stat-footer">Needs attention</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="stat-card stat-card-success">
+                        <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Overdue</div>
+                        <div class="stat-footer">All on track</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        @if (dashboardData.TotalAssignments > 0)
+        {
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0 section-heading">Overall Progress</h5>
+                        <span class="badge bg-primary">@dashboardData.CompletionPercentage.ToString("F0")%</span>
+                    </div>
+                    <div class="progress progress-md">
+                        <div class="progress-bar bg-success" role="progressbar"
+                             style="width: @dashboardData.CompletionPercentage%;"
+                             aria-valuenow="@dashboardData.CompletionPercentage" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        @dashboardData.CompletedAssignments of @dashboardData.TotalAssignments assignments completed
+                    </small>
+                </div>
+            </div>
+        }
+
+        <!-- Upcoming Assignments -->
+        @if (upcomingAssignments.Any())
+        {
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 section-heading">
+                        <i class="bi bi-clock me-1 icon-warning"></i> Upcoming Assignments
+                    </h5>
+                    <a href="/assignments" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="list-group list-group-flush">
+                    @foreach (var assignment in upcomingAssignments.Take(5))
+                    {
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">@assignment.Name</h6>
+                                <small class="text-muted">
+                                    <span class="badge course-badge-sm" style="background-color: @assignment.Course.Color;">
+                                        @assignment.Course.CourseCode
+                                    </span>
+                                    <span class="ms-1">Due @assignment.DueDate.ToShortDateString()</span>
+                                    @if (assignment.DaysUntilDue == 0)
+                                    {
+                                        <span class="badge bg-warning ms-1">Due Today</span>
+                                    }
+                                    else if (assignment.DaysUntilDue == 1)
+                                    {
+                                        <span class="badge bg-warning ms-1">Due Tomorrow</span>
+                                    }
+                                </small>
+                            </div>
+                            <span class="badge bg-@GetPriorityClass(assignment.Priority)">
+                                @assignment.Priority
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Overdue Assignments Warning -->
+        @if (overdueAssignments.Any())
+        {
+            <div class="card mb-4 card-overdue">
+                <div class="overdue-header">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Overdue Assignments
+                </div>
+                <div class="list-group list-group-flush">
+                    @foreach (var assignment in overdueAssignments.Take(5))
+                    {
+                        <div class="list-group-item list-group-item-danger d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">@assignment.Name</h6>
+                                <small class="text-muted">
+                                    <span class="badge course-badge-sm" style="background-color: @assignment.Course.Color;">
+                                        @assignment.Course.CourseCode
+                                    </span>
+                                    <span class="ms-1">Was due @assignment.DueDate.ToShortDateString()</span>
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => NavigateToAssignments()">
+                                Review
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Quick Actions -->
+        <div class="mb-4">
+            <h5 class="mb-3 section-heading-muted">Quick Actions</h5>
+            <div class="d-flex gap-3 flex-wrap">
+                <a class="quick-action-btn action-primary" href="/courses">
+                    <i class="bi bi-journal-plus"></i>
+                    <span>Add Course</span>
+                </a>
+                <a class="quick-action-btn action-success" href="/assignments">
+                    <i class="bi bi-plus-square"></i>
+                    <span>Add Assignment</span>
+                </a>
+                <a class="quick-action-btn action-info" href="/projects">
+                    <i class="bi bi-people"></i>
+                    <span>Create Project</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Getting Started Section -->
+        @if (dashboardData.TotalCourses == 0)
+        {
+            <div class="getting-started">
+                <h4><i class="bi bi-rocket-takeoff me-2 icon-primary"></i> Getting Started</h4>
+                <p>Welcome to Student Project Planner! Here's how to get organized:</p>
+                <ol>
+                    <li class="mb-1">Add your courses in the <a href="/courses">Courses</a> section</li>
+                    <li class="mb-1">Create assignments and track deadlines in <a href="/assignments">Assignments</a></li>
+                    <li class="mb-1">Set up group projects in the <a href="/projects">Group Projects</a> section</li>
+                </ol>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private DashboardData? dashboardData;
+    private List<Assignment> upcomingAssignments = new();
+    private List<Assignment> overdueAssignments = new();
+    private bool isLoading = true;
+    private string userName = "Student";
+    private string currentUserId = string.Empty;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationState != null)
+        {
+            var authState = await AuthenticationState;
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var appUser = await UserManager.GetUserAsync(user);
+                if (appUser != null)
+                {
+                    currentUserId = appUser.Id;
+                    userName = appUser.FirstName ?? user.Identity.Name ?? "Student";
+                    await LoadDashboardData();
+                }
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            dashboardData = await DashboardService.GetDashboardDataAsync(currentUserId);
+            upcomingAssignments = (await AssignmentService.GetUpcomingAssignmentsAsync(currentUserId, 7)).ToList();
+            overdueAssignments = (await AssignmentService.GetOverdueAssignmentsAsync(currentUserId)).ToList();
+        }
+        catch (Exception)
+        {
+            dashboardData = new DashboardData();
+        }
+    }
+
+    private void NavigateToAssignments()
+    {
+        Navigation.NavigateTo("/assignments");
+    }
+
+    private string GetPriorityClass(Priority priority) => priority switch
+    {
+        Priority.High => "danger",
+        Priority.Medium => "warning",
+        Priority.Low => "info",
+        _ => "secondary"
+    };
+}

@@ -1,0 +1,288 @@
+@page "/profile"
+@rendermode @(new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false))
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using StudentProjectPlanner.Models
+@using System.ComponentModel.DataAnnotations
+@inject UserManager<ApplicationUser> UserManager
+@attribute [Authorize]
+
+<PageTitle>Profile - Student Project Planner</PageTitle>
+
+<div class="container-fluid content">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6">My Profile</h1>
+            <p class="lead text-muted">Manage your account information and security settings.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle"></i> @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (currentUser != null)
+    {
+        <div class="row">
+            <div class="col-lg-4 mb-4">
+                <div class="card">
+                    <div class="card-body text-center profile-card-body">
+                        <div class="profile-avatar">
+                            @(currentUser.FirstName?.Length > 0 ? currentUser.FirstName[0].ToString().ToUpper() :
+                        "?")@(currentUser.LastName?.Length > 0 ? currentUser.LastName[0].ToString().ToUpper() : "")
+                        </div>
+                        <h4 class="mb-1">@currentUser.FirstName
+                            @currentUser.LastName</h4>
+                            <p class="text-muted mb-2 profile-email">@currentUser.Email</p>
+                            <span class="badge bg-primary">Student</span>
+                            <div class="mt-3 pt-3 separator-top">
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar3"></i> Member since @currentUser.CreatedAt.ToString("MMMM yyyy")
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-8">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-person"></i> Personal Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <EditForm Model="profileModel" OnValidSubmit="UpdateProfile">
+                                <DataAnnotationsValidator />
+                                <ValidationSummary class="text-danger" />
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">First Name</label>
+                                        <InputText class="form-control" @bind-Value="profileModel.FirstName" />
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Last Name</label>
+                                        <InputText class="form-control" @bind-Value="profileModel.LastName" />
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Email Address</label>
+                                    <input type="email" class="form-control" value="@currentUser.Email" disabled />
+                                    <small class="text-muted">Email cannot be changed.</small>
+                                </div>
+                                <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                    @if (isSaving)
+                                    {
+                                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                                        <span>Saving...</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-check2"></i>
+                                        <span>Save Changes</span>
+                                    }
+                                </button>
+                            </EditForm>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Change Password</h5>
+                        </div>
+                        <div class="card-body">
+                            <EditForm Model="passwordModel" OnValidSubmit="ChangePassword">
+                                <DataAnnotationsValidator />
+                                <ValidationSummary class="text-danger" />
+
+                                <div class="mb-3">
+                                    <label class="form-label">Current Password</label>
+                                    <InputText type="password" class="form-control"
+                                               @bind-Value="passwordModel.CurrentPassword" />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">New Password</label>
+                                    <InputText type="password" class="form-control" @bind-Value="passwordModel.NewPassword" />
+                                    <small class="text-muted">At least 8 characters with uppercase, lowercase, number, and
+                                        special character.</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Confirm New Password</label>
+                                        <InputText type="password" class="form-control"
+                                                   @bind-Value="passwordModel.ConfirmNewPassword" />
+                                    </div>
+                                    <button type="submit" class="btn btn-outline-primary" disabled="@isChangingPassword">
+                                        @if (isChangingPassword)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                                            <span>Updating...</span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-key"></i>
+                                            <span>Update Password</span>
+                                        }
+                                    </button>
+                                </EditForm>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+@code {
+    private ApplicationUser? currentUser;
+    private ProfileModel profileModel = new();
+    private PasswordModel passwordModel = new();
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool isChangingPassword = false;
+    private string? successMessage;
+    private string? errorMessage;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationState != null)
+        {
+            var authState = await AuthenticationState;
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                currentUser = await UserManager.GetUserAsync(user);
+                if (currentUser != null)
+                {
+                    profileModel.FirstName = currentUser.FirstName;
+                    profileModel.LastName = currentUser.LastName;
+                }
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private async Task UpdateProfile()
+    {
+        if (currentUser == null) return;
+
+        isSaving = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            currentUser.FirstName = profileModel.FirstName;
+            currentUser.LastName = profileModel.LastName;
+
+            var result = await UserManager.UpdateAsync(currentUser);
+            if (result.Succeeded)
+            {
+                successMessage = "Profile updated successfully.";
+            }
+            else
+            {
+                errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating profile: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ChangePassword()
+    {
+        if (currentUser == null) return;
+
+        if (passwordModel.NewPassword != passwordModel.ConfirmNewPassword)
+        {
+            errorMessage = "New password and confirmation do not match.";
+            return;
+        }
+
+        isChangingPassword = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var result = await UserManager.ChangePasswordAsync(
+                currentUser,
+                passwordModel.CurrentPassword,
+                passwordModel.NewPassword);
+
+            if (result.Succeeded)
+            {
+                successMessage = "Password changed successfully.";
+                passwordModel = new();
+            }
+            else
+            {
+                errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error changing password: {ex.Message}";
+        }
+        finally
+        {
+            isChangingPassword = false;
+        }
+    }
+
+    private class ProfileModel
+    {
+        [Required(ErrorMessage = "First name is required")]
+        [MaxLength(100)]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Last name is required")]
+        [MaxLength(100)]
+        public string LastName { get; set; } = string.Empty;
+    }
+
+    private class PasswordModel
+    {
+        [Required(ErrorMessage = "Current password is required")]
+        [DataType(DataType.Password)]
+        public string CurrentPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "New password is required")]
+        [DataType(DataType.Password)]
+        [MinLength(8, ErrorMessage = "Password must be at least 8 characters")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please confirm your new password")]
+        [DataType(DataType.Password)]
+        [Compare(nameof(NewPassword), ErrorMessage = "Passwords do not match")]
+        public string ConfirmNewPassword { get; set; } = string.Empty;
+    }
+}
