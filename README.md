@@ -191,6 +191,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [W03 Meeting Notes](docs/W03-Meeting-Notes.md) - Initial planning and brainstorming
 - [Project Structure](docs/PROJECT_STRUCTURE.md) - Application architecture overview
 - [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to this project
+- [Lighthouse Reports](docs/reports) - Performance and accessibility audits
 
 ## 🤝 Acknowledgments
 

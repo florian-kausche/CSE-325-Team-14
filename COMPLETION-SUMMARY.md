@@ -7,6 +7,11 @@
 **Framework**: ASP.NET Core 8.0 + Blazor Server  
 **Database**: SQLite (Development) / SQL Server (Production)
 
+## ✅ QA Reports
+
+- Lighthouse (Desktop): docs/reports/lighthouse-home-desktop.html
+- Lighthouse (Mobile): docs/reports/lighthouse-home-mobile.html
+
 ---
 
 ## ✨ Major Accomplishments
