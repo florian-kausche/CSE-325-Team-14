@@ -1,0 +1,9 @@
+{
+    "build": {
+        "builder": "NIXPACKS",
+        "buildCommand": "dotnet publish -c Release -o out src/StudentProjectPlanner/StudentProjectPlanner.csproj"
+    },
+    "deploy": {
+        "startCommand": "dotnet out/StudentProjectPlanner.dll"
+    }
+}
