@@ -54,6 +54,11 @@ builder.Services.Configure<OpenWeatherMapOptions>(
     builder.Configuration.GetSection(OpenWeatherMapOptions.SectionName));
 builder.Services.AddHttpClient<IWeatherService, OpenWeatherMapService>();
 
+// Configure email sender for password reset
+builder.Services.Configure<EmailOptions>(
+    builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+
 // ===========================
 // Configure Database Context
 // ===========================

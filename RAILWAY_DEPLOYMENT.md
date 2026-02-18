@@ -28,6 +28,14 @@ PORT=5000
 OpenWeatherMap__ApiKey=
 OpenWeatherMap__BaseUrl=https://api.openweathermap.org/data/2.5/
 OpenWeatherMap__DefaultCity=Accra
+
+# Required for password reset emails (SMTP)
+Email__Host=smtp.gmail.com
+Email__Port=587
+Email__Username=your-email@gmail.com
+Email__Password=your-app-password
+Email__From=your-email@gmail.com
+Email__EnableSsl=true
 ```
 
 ### 3. **Deploy**
