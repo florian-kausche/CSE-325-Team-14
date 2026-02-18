@@ -57,7 +57,19 @@ builder.Services.AddHttpClient<IWeatherService, OpenWeatherMapService>();
 // Configure email sender for password reset
 builder.Services.Configure<EmailOptions>(
     builder.Configuration.GetSection(EmailOptions.SectionName));
-builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+
+// Use ConsoleEmailSender in development, SmtpEmailSender in production when configured
+var emailConfig = builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>();
+if (builder.Environment.IsDevelopment() || string.IsNullOrWhiteSpace(emailConfig?.Host))
+{
+    // Development mode: log emails to console instead of sending them
+    builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
+}
+else
+{
+    // Production mode: send real emails via SMTP
+    builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+}
 
 // ===========================
 // Configure Database Context
