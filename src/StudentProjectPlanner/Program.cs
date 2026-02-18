@@ -64,18 +64,20 @@ builder.Services.AddHttpClient<IWeatherService, OpenWeatherMapService>();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-// Configure database based on environment (SQLite for dev, SQL Server for prod)
+// Configure database - use SQLite for all environments (can be overridden with USE_SQLSERVER env var)
+var useSqlServer = builder.Configuration.GetValue<bool>("USE_SQLSERVER", false);
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    if (builder.Environment.IsDevelopment())
+    if (useSqlServer)
     {
-        // Use SQLite for development
-        options.UseSqlite(connectionString);
+        // Use SQL Server when explicitly configured
+        options.UseSqlServer(connectionString);
     }
     else
     {
-        // Use SQL Server for production
-        options.UseSqlServer(connectionString);
+        // Use SQLite by default for all environments
+        options.UseSqlite(connectionString);
     }
 });
 
@@ -110,13 +112,21 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// Configure external authentication (Google OAuth)
-builder.Services.AddAuthentication()
-    .AddGoogle(options =>
-    {
-        options.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? string.Empty;
-        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? string.Empty;
-    });
+// Configure external authentication (Google OAuth) - only if credentials are provided
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+
+if (!string.IsNullOrEmpty(googleClientId) && 
+    !string.IsNullOrEmpty(googleClientSecret) &&
+    googleClientId != "YOUR_GOOGLE_CLIENT_ID")
+{
+    builder.Services.AddAuthentication()
+        .AddGoogle(options =>
+        {
+            options.ClientId = googleClientId;
+            options.ClientSecret = googleClientSecret;
+        });
+}
 
 // Add authorization
 builder.Services.AddAuthorization();

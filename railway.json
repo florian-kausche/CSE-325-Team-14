@@ -1,9 +1,11 @@
 {
+    "$schema": "https://railway.app/railway.schema.json",
     "build": {
-        "builder": "NIXPACKS",
-        "buildCommand": "dotnet publish -c Release -o out src/StudentProjectPlanner/StudentProjectPlanner.csproj"
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "Dockerfile"
     },
     "deploy": {
-        "startCommand": "dotnet out/StudentProjectPlanner.dll"
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
     }
 }
