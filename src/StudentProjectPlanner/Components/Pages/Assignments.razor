@@ -1,3 +1,23 @@
+@*
+ * ========================================
+ * Assignments.razor - Assignment Management Page
+ * ========================================
+ * This page allows users to manage individual assignments for their courses:
+ * - View all assignments with filters (status, priority, course)
+ * - Add new assignments to courses
+ * - Edit existing assignments
+ * - Delete assignments
+ * - Mark assignments as complete
+ * - Sort by  due date, priority, or status
+ * 
+ * Features:
+ * - Assignment status tracking (Not Started, In Progress, Completed)
+ * - Priority levels (Low, Medium, High) with visual indicators
+ * - Ovdue assignment highlighting
+ * - Course filtering and sorting
+ * - Form validation and error handling
+ *@
+
 @page "/assignments"
 @rendermode @(new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false))
 @using Microsoft.AspNetCore.Authorization
