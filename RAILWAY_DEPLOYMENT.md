@@ -3,11 +3,12 @@
 ## Quick Deployment Steps
 
 ### 1. **Prepare Your Railway Project**
-   - Make sure you have pushed these new files to GitHub:
-     - `Dockerfile`
-     - `.dockerignore`
-     - Updated `railway.json`
-     - Updated `Program.cs`
+
+- Make sure you have pushed these new files to GitHub:
+  - `Dockerfile`
+  - `.dockerignore`
+  - Updated `railway.json`
+  - Updated `Program.cs`
 
 ### 2. **Required Environment Variables in Railway**
 
@@ -34,13 +35,15 @@ OpenWeatherMap__DefaultCity=Accra
 ```
 
 ### 3. **Deploy**
-   - Railway will automatically detect the Dockerfile and build
-   - The build should now succeed with .NET 8.0
-   - Your app will be available on a Railway-provided URL
+
+- Railway will automatically detect the Dockerfile and build
+- The build should now succeed with .NET 8.0
+- Your app will be available on a Railway-provided URL
 
 ### 4. **Volume for Database Persistence (Recommended)**
 
 To persist your SQLite database across deployments:
+
 1. In Railway dashboard, go to your service
 2. Click on "Volumes" or "Storage"
 3. Add a new volume:
@@ -52,6 +55,7 @@ This ensures your database isn't lost on redeployments.
 ### 5. **Verify Deployment**
 
 After successful deployment:
+
 - Check the deployment logs for any errors
 - Visit your Railway URL
 - Test registration and login
@@ -59,16 +63,19 @@ After successful deployment:
 ## Troubleshooting
 
 ### Build Fails
+
 - Check Railway logs for specific errors
 - Ensure all files are committed to GitHub
 - Verify the `Dockerfile` is in the root directory
 
 ### App Crashes on Startup
+
 - Check environment variables are set correctly
 - Verify the database path is writable
 - Check Railway logs under "Deployments"
 
 ### Database Issues
+
 - Ensure volume is mounted to `/home/data`
 - Check that `ConnectionStrings__DefaultConnection` uses the correct path
 

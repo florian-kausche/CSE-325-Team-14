@@ -116,7 +116,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
 var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
 
-if (!string.IsNullOrEmpty(googleClientId) && 
+if (!string.IsNullOrEmpty(googleClientId) &&
     !string.IsNullOrEmpty(googleClientSecret) &&
     googleClientId != "YOUR_GOOGLE_CLIENT_ID")
 {
