@@ -6,6 +6,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager Navigation
+@inject IConfiguration Configuration
 
 <PageTitle>Register - Student Project Planner</PageTitle>
 
@@ -112,11 +113,14 @@
                 </button>
             </EditForm>
 
-            <div class="auth-divider"></div>
-            <a class="btn btn-outline-secondary w-100 auth-oauth-btn" href="/account/external-login?provider=Google&returnUrl=/">
-                <i class="bi bi-google"></i>
-                Sign up with Google
-            </a>
+            @if (!string.IsNullOrWhiteSpace(Configuration["Authentication:Google:ClientId"]))
+            {
+                <div class="auth-divider"></div>
+                <a class="btn btn-outline-secondary w-100 auth-oauth-btn" href="/account/external-login?provider=Google&returnUrl=/">
+                    <i class="bi bi-google"></i>
+                    Sign up with Google
+                </a>
+            }
 
             <div class="auth-divider"></div>
             <p class="text-center mb-0 auth-footer-text">
