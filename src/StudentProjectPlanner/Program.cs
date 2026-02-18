@@ -8,22 +8,20 @@
  * 
  * Key Responsibilities:
  * - Configure dependency injection for services and repositories
- * - Set up authentication (Identity, Google OAuth)
+ * - Set up authentication (Identity)
  * - Configure database context and connection string handling
  * - Register Razor components and middleware
  * - Initialize middleware pipeline
  * 
- * Technologies: ASP.NET Core Blazer, Entity Framework Core, Identity, Google Auth
+ * Technologies: ASP.NET Core Blazer, Entity Framework Core, Identity
  */
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using StudentProjectPlanner.Components;
 using StudentProjectPlanner.Data;
 using StudentProjectPlanner.Models;
@@ -112,22 +110,6 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// Configure external authentication (Google OAuth) - only if credentials are provided
-var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
-var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
-
-if (!string.IsNullOrEmpty(googleClientId) &&
-    !string.IsNullOrEmpty(googleClientSecret) &&
-    googleClientId != "YOUR_GOOGLE_CLIENT_ID")
-{
-    builder.Services.AddAuthentication()
-        .AddGoogle(options =>
-        {
-            options.ClientId = googleClientId;
-            options.ClientSecret = googleClientSecret;
-        });
-}
-
 // Add authorization
 builder.Services.AddAuthorization();
 
@@ -212,91 +194,6 @@ app.MapGet("/account/logout", async (HttpContext context, SignInManager<Applicat
 {
     await signInManager.SignOutAsync();
     return Results.Redirect("/login");
-});
-
-/// <summary>
-/// Validates and sanitizes return URL to prevent open redirect attacks.
-/// Only allows URLs starting with "/" (relative URLs).
-/// </summary>
-static string GetSafeReturnUrl(string? returnUrl)
-{
-    if (string.IsNullOrWhiteSpace(returnUrl) || !returnUrl.StartsWith("/", StringComparison.Ordinal))
-    {
-        return "/";
-    }
-
-    return returnUrl;
-}
-
-// External login endpoint - initiates OAuth flow for external providers (Google)
-app.MapGet("/account/external-login", (string provider, string? returnUrl, SignInManager<ApplicationUser> signInManager) =>
-{
-    var safeReturnUrl = GetSafeReturnUrl(returnUrl);
-    var redirectUrl = $"/account/external-callback?returnUrl={Uri.EscapeDataString(safeReturnUrl)}";
-    var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
-    return Results.Challenge(properties, new[] { provider });
-});
-
-// External login callback endpoint - handles OAuth provider response
-// This is called after the external provider (Google) authenticates the user
-app.MapGet("/account/external-callback", async (string? returnUrl,
-    SignInManager<ApplicationUser> signInManager,
-    UserManager<ApplicationUser> userManager) =>
-{
-    var safeReturnUrl = GetSafeReturnUrl(returnUrl);
-    var info = await signInManager.GetExternalLoginInfoAsync();
-    if (info == null)
-    {
-        return Results.Redirect("/login?error=external");
-    }
-
-    // Try to sign in with existing external login
-    var signInResult = await signInManager.ExternalLoginSignInAsync(
-        info.LoginProvider,
-        info.ProviderKey,
-        isPersistent: false,
-        bypassTwoFactor: true);
-
-    if (signInResult.Succeeded)
-    {
-        return Results.Redirect(safeReturnUrl);
-    }
-
-    // If user doesn't exist, get email from external provider and create new user
-    var email = info.Principal.FindFirstValue(ClaimTypes.Email);
-    if (string.IsNullOrWhiteSpace(email))
-    {
-        return Results.Redirect("/login?error=external");
-    }
-
-    var user = await userManager.FindByEmailAsync(email);
-    if (user == null)
-    {
-        // Create new user from external login information
-        user = new ApplicationUser
-        {
-            UserName = email,
-            Email = email,
-            FirstName = info.Principal.FindFirstValue(ClaimTypes.GivenName) ?? string.Empty,
-            LastName = info.Principal.FindFirstValue(ClaimTypes.Surname) ?? string.Empty,
-            EmailConfirmed = true
-        };
-
-        var createResult = await userManager.CreateAsync(user);
-        if (!createResult.Succeeded)
-        {
-            return Results.Redirect("/login?error=external");
-        }
-    }
-
-    var addLoginResult = await userManager.AddLoginAsync(user, info);
-    if (!addLoginResult.Succeeded)
-    {
-        return Results.Redirect("/login?error=external");
-    }
-
-    await signInManager.SignInAsync(user, isPersistent: false);
-    return Results.Redirect(safeReturnUrl);
 });
 
 app.MapRazorComponents<App>()

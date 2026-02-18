@@ -361,13 +361,6 @@ a:hover { color: var(--primary-hover); }
     text-underline-offset: 2px;
 }
 
-.auth-oauth-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-}
-
 /* Input with icon */
 .input-icon-wrapper { position: relative; }
 

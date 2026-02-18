@@ -24,10 +24,6 @@ ASPNETCORE_ENVIRONMENT=Production
 # Port (Railway will set this automatically, but you can override)
 PORT=5000
 
-# Optional: Google OAuth (leave empty if not using)
-Authentication__Google__ClientId=
-Authentication__Google__ClientSecret=
-
 # Optional: OpenWeatherMap API
 OpenWeatherMap__ApiKey=
 OpenWeatherMap__BaseUrl=https://api.openweathermap.org/data/2.5/
@@ -97,4 +93,3 @@ docker run -p 5000:5000 -e ASPNETCORE_ENVIRONMENT=Production studentprojectplann
 
 - The app now uses SQLite in production by default
 - Set `USE_SQLSERVER=true` if you want to use SQL Server instead
-- Google OAuth is optional and only enabled if credentials are provided
