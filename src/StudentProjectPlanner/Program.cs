@@ -1,3 +1,21 @@
+/*
+ * ========================================
+ * Student Project Planner - Application Entry Point
+ * ========================================
+ * This is the main application configuration file that sets up all services,
+ * middleware, authentication, and database connections for the Student Project 
+ * Planner web application.
+ * 
+ * Key Responsibilities:
+ * - Configure dependency injection for services and repositories
+ * - Set up authentication (Identity, Google OAuth)
+ * - Configure database context and connection string handling
+ * - Register Razor components and middleware
+ * - Initialize middleware pipeline
+ * 
+ * Technologies: ASP.NET Core Blazer, Entity Framework Core, Identity, Google Auth
+ */
+
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
@@ -16,6 +34,10 @@ using StudentProjectPlanner.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ===========================
+// Add Services to the Container
+// ===========================
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -25,10 +47,24 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
 builder.Services.AddHttpContextAccessor();
 
-// Configure database
+// ===========================
+// Configure External Services
+// ===========================
+
+// Configure OpenWeatherMap for weather functionality
+builder.Services.Configure<OpenWeatherMapOptions>(
+    builder.Configuration.GetSection(OpenWeatherMapOptions.SectionName));
+builder.Services.AddHttpClient<IWeatherService, OpenWeatherMapService>();
+
+// ===========================
+// Configure Database Context
+// ===========================
+
+// Get the database connection string (required - will throw if not found)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
+// Configure database based on environment (SQLite for dev, SQL Server for prod)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     if (builder.Environment.IsDevelopment())
@@ -43,7 +79,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     }
 });
 
-// Configure Identity
+// ===========================
+// Configure Identity & Authentication
+// ===========================
+
+// Configure Identity with strong password and lockout policies
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     // Password settings - strong security requirements
@@ -70,6 +110,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
+// Configure external authentication (Google OAuth)
 builder.Services.AddAuthentication()
     .AddGoogle(options =>
     {
@@ -80,7 +121,7 @@ builder.Services.AddAuthentication()
 // Add authorization
 builder.Services.AddAuthorization();
 
-// Configure application cookie
+// Configure application cookie settings for authentication
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/login";
@@ -88,20 +129,30 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = "/access-denied";
 });
 
-// Register repositories
+// ===========================
+// Register Repositories (Data Access Layer)
+// ===========================
+
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IAssignmentRepository, AssignmentRepository>();
 builder.Services.AddScoped<IGroupProjectRepository, GroupProjectRepository>();
 
-// Register services
+// ===========================
+// Register Services (Business Logic Layer)
+// ===========================
+
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IAssignmentService, AssignmentService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IGroupProjectService, GroupProjectService>();
 
+// ===========================
+// Build Application & Initialize Database
+// ===========================
+
 var app = builder.Build();
 
-// Initialize database
+// Initialize database on startup (run migrations and seed data)
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -118,29 +169,45 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// ===========================
+// Configure HTTP Request Pipeline & Middleware
+// ===========================
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
+    // Production middleware
     app.UseExceptionHandler("/Error");
     app.UseHsts();
     app.UseHttpsRedirection();
 }
 
+// Add static file serving
 app.UseStaticFiles();
 app.UseRouting();
 
+// Add authentication and authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Add antiforgery token validation for form submissions
 app.UseAntiforgery();
 
-// Auth endpoints that need HttpContext
+// ===========================
+// Map HTTP Endpoints for Authentication
+// ===========================
+
+// Logout endpoint - signs out the user and redirects to login page
 app.MapGet("/account/logout", async (HttpContext context, SignInManager<ApplicationUser> signInManager) =>
 {
     await signInManager.SignOutAsync();
     return Results.Redirect("/login");
 });
 
+/// <summary>
+/// Validates and sanitizes return URL to prevent open redirect attacks.
+/// Only allows URLs starting with "/" (relative URLs).
+/// </summary>
 static string GetSafeReturnUrl(string? returnUrl)
 {
     if (string.IsNullOrWhiteSpace(returnUrl) || !returnUrl.StartsWith("/", StringComparison.Ordinal))
@@ -151,6 +218,7 @@ static string GetSafeReturnUrl(string? returnUrl)
     return returnUrl;
 }
 
+// External login endpoint - initiates OAuth flow for external providers (Google)
 app.MapGet("/account/external-login", (string provider, string? returnUrl, SignInManager<ApplicationUser> signInManager) =>
 {
     var safeReturnUrl = GetSafeReturnUrl(returnUrl);
@@ -159,6 +227,8 @@ app.MapGet("/account/external-login", (string provider, string? returnUrl, SignI
     return Results.Challenge(properties, new[] { provider });
 });
 
+// External login callback endpoint - handles OAuth provider response
+// This is called after the external provider (Google) authenticates the user
 app.MapGet("/account/external-callback", async (string? returnUrl,
     SignInManager<ApplicationUser> signInManager,
     UserManager<ApplicationUser> userManager) =>
@@ -170,6 +240,7 @@ app.MapGet("/account/external-callback", async (string? returnUrl,
         return Results.Redirect("/login?error=external");
     }
 
+    // Try to sign in with existing external login
     var signInResult = await signInManager.ExternalLoginSignInAsync(
         info.LoginProvider,
         info.ProviderKey,
@@ -181,6 +252,7 @@ app.MapGet("/account/external-callback", async (string? returnUrl,
         return Results.Redirect(safeReturnUrl);
     }
 
+    // If user doesn't exist, get email from external provider and create new user
     var email = info.Principal.FindFirstValue(ClaimTypes.Email);
     if (string.IsNullOrWhiteSpace(email))
     {
@@ -190,6 +262,7 @@ app.MapGet("/account/external-callback", async (string? returnUrl,
     var user = await userManager.FindByEmailAsync(email);
     if (user == null)
     {
+        // Create new user from external login information
         user = new ApplicationUser
         {
             UserName = email,

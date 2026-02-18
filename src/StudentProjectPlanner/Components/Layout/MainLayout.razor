@@ -1,9 +1,23 @@
+@*
+ * ========================================
+ * MainLayout.razor - Main Application Layout
+ * ========================================
+ * This is the main layout component that provides the structure for authenticated pages.
+ * It includes the sidebar navigation menu and main content area with responsive design.
+ * 
+ * Structure:
+ * - Sidebar: Navigation menu (responsive - hidden on mobile)
+ * - Header: Top navigation bar with mobile toggle
+ * - Body: Main content area where pages are rendered
+ *@
+
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Routing
 
 @inherits LayoutComponentBase
 
 <div class="page">
+    <!-- Sidebar Navigation -->
     <aside class="page-sidebar" id="sidebar">
         <div class="sidebar-header">
             <i class="bi bi-mortarboard-fill sidebar-logo"></i>
@@ -12,11 +26,15 @@
         <NavMenu />
     </aside>
 
+    <!-- Mobile Sidebar Overlay -->
     <div class="sidebar-overlay d-lg-none" onclick="document.getElementById('sidebar').classList.remove('show')"></div>
 
+    <!-- Main Content Area -->
     <div class="page-wrapper">
+        <!-- Header -->
         <header class="page-header">
             <div class="header-inner">
+                <!-- Mobile Sidebar Toggle Button -->
                 <button class="sidebar-toggle d-lg-none"
                         onclick="document.getElementById('sidebar').classList.toggle('show')">
                     <i class="bi bi-list"></i>
@@ -25,6 +43,7 @@
             </div>
         </header>
 
+        <!-- Page Content -->
         <main class="page-body">
             <div class="page-content">
                 @Body

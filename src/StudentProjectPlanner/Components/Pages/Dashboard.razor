@@ -1,11 +1,33 @@
+@*
+ * ========================================
+ * Dashboard.razor - User Dashboard Page
+ * ========================================
+ * This is the home page/dashboard of the application. It displays:
+ * - Welcome greeting with user's name
+ * - Statistics cards (courses, assignments, projects by status)
+ * - List of upcoming due assignments
+ * - Current weather information
+ * - Quick action links
+ * 
+ * Features:
+ * - Requires authentication (Authorize attribute)
+ * - Interactive server render mode (real-time updates)
+ * - Integrated weather service from OpenWeatherMap
+ * - Dashboard service for aggregated data view
+ * - Error handling and loading states
+ *@
+
 @page "/"
 @rendermode @(new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false))
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.Extensions.Options
 @using StudentProjectPlanner.Models
 @using StudentProjectPlanner.Services.Interfaces
 @inject IDashboardService DashboardService
 @inject IAssignmentService AssignmentService
+@inject IWeatherService WeatherService
+@inject IOptions<OpenWeatherMapOptions> WeatherOptions
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Navigation
 @attribute [Authorize]
@@ -99,6 +121,37 @@
                 </div>
             </div>
         }
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0 section-heading">Current Weather</h5>
+                    <span class="badge bg-info">@weatherCity</span>
+                </div>
+                @if (weatherError != null)
+                {
+                    <div class="text-muted">@weatherError</div>
+                }
+                else if (weather != null)
+                {
+                    <div class="d-flex align-items-center gap-3">
+                        @if (!string.IsNullOrWhiteSpace(weather.Icon))
+                        {
+                            <img src="https://openweathermap.org/img/wn/@(weather.Icon)@@2x.png" alt="Weather icon" width="56"
+                                 height="56" />
+                        }
+                        <div>
+                            <div class="h4 mb-0">@Math.Round(weather.TemperatureC)°C</div>
+                            <div class="text-muted text-capitalize">@weather.Description</div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-muted">Weather unavailable.</div>
+                }
+            </div>
+        </div>
 
         <!-- Upcoming Assignments -->
         @if (upcomingAssignments.Any())
@@ -208,6 +261,9 @@
     private DashboardData? dashboardData;
     private List<Assignment> upcomingAssignments = new();
     private List<Assignment> overdueAssignments = new();
+    private WeatherSummary? weather;
+    private string weatherCity = "Rexburg";
+    private string? weatherError;
     private bool isLoading = true;
     private string userName = "Student";
     private string currentUserId = string.Empty;
@@ -248,6 +304,22 @@
         catch (Exception)
         {
             dashboardData = new DashboardData();
+        }
+
+        try
+        {
+            var configuredCity = WeatherOptions.Value.DefaultCity;
+            if (!string.IsNullOrWhiteSpace(configuredCity))
+            {
+                weatherCity = configuredCity;
+            }
+
+            weather = await WeatherService.GetCurrentWeatherAsync(weatherCity);
+            weatherError = weather == null ? "Weather unavailable." : null;
+        }
+        catch (Exception)
+        {
+            weatherError = "Weather unavailable.";
         }
     }
 

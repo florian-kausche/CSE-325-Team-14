@@ -1,3 +1,23 @@
+@*
+ * ========================================
+ * Courses.razor - Course Management Page
+ * ========================================
+ * This page allows users to manage their courses:
+ * - View all enrolled courses
+ * - Add new courses
+ * - Edit existing courses
+ * - Delete courses
+ * - View course assignments
+ * - Color-code courses for visual organization
+ * 
+ * Features:
+ * - Form validation (Razor EditForm with DataAnnotationsValidator)
+ * - Error handling and success notifications
+ * - Loading states and responsive layout
+ * - Inline editing support
+ * - Course color selection
+ *@
+
 @page "/courses"
 @rendermode @(new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false))
 @using Microsoft.AspNetCore.Authorization
